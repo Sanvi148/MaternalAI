@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, Activity, Clipboard, ArrowRight } from 'lucide-react';
 
@@ -23,6 +23,10 @@ export default function RiskAssessment() {
     mentalHealthConcerns: false,
     shortBirthSpacing: false,
   });
+    const [isRecording, setIsRecording] = useState(false);
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
+  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
 
  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
   const { name, value, type, checked } = e.target;
@@ -51,6 +55,48 @@ export default function RiskAssessment() {
   });
 };
 
+  const startRecording = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const mediaRecorder = new MediaRecorder(stream);
+    mediaRecorderRef.current = mediaRecorder;
+    chunksRef.current = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) {
+        chunksRef.current.push(e.data);
+      }
+    };
+
+    mediaRecorder.onstop = () => {
+  const blob = new Blob(chunksRef.current, { type: "audio/webm" });
+  setAudioBlob(blob);
+
+  const reader = new FileReader();
+  reader.onloadend = () => {
+    const base64 = reader.result as string; // "data:audio/webm;base64,...."
+    sessionStorage.setItem("riskAssessmentAudioBase64", base64);
+  };
+  reader.readAsDataURL(blob);
+};
+
+
+    mediaRecorder.start();
+    setIsRecording(true);
+  } catch (err) {
+    console.error("Mic error:", err);
+    alert("Could not access microphone. Please check permissions.");
+  }
+};
+
+const stopRecording = () => {
+  const recorder = mediaRecorderRef.current;
+  if (recorder && recorder.state !== "inactive") {
+    recorder.stop();
+    recorder.stream.getTracks().forEach((t) => t.stop());
+  }
+  setIsRecording(false);
+};
 
   const handleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -93,13 +139,65 @@ export default function RiskAssessment() {
   return (
     <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Header */}
-      <div className="text-center mb-8">
-        <div className="inline-block p-3 bg-[#2BB4A0]/10 rounded-full mb-4">
-          <Clipboard className="w-10 h-10 text-[#2BB4A0]" />
-        </div>
-        <h1 className="text-gray-900 mb-2">Pregnancy Risk Assessment</h1>
-        <p className="text-gray-600">Enter patient details to predict risk</p>
+      <div className="mb-8">
+  <div className="flex items-center justify-between">
+    <div className="text-left">
+      <div className="inline-block p-3 bg-[#2BB4A0]/10 rounded-full mb-2">
+        <Clipboard className="w-10 h-10 text-[#2BB4A0]" />
       </div>
+      <h1 className="text-gray-900 mb-1">Pregnancy Risk Assessment</h1>
+      <p className="text-gray-600 text-sm">
+        Enter patient details to predict risk
+      </p>
+    </div>
+
+    {/* Mic button */}
+    <button
+      type="button"
+      onClick={isRecording ? stopRecording : startRecording}
+      className={`flex items-center justify-center w-12 h-12 rounded-full shadow-md border ${
+        isRecording ? "bg-red-500 border-red-600 text-white animate-pulse" : "bg-white border-gray-300 text-[#2BB4A0]"
+      }`}
+      title={isRecording ? "Stop recording" : "Start voice capture"}
+    >
+      {/* simple mic icon using SVG or lucide-react Mic if you import it */}
+      <span className="sr-only">Toggle recording</span>
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        className="w-6 h-6"
+        fill="none"
+        viewBox="0 0 24 24"
+        stroke="currentColor"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.6"
+          d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3z"
+        />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth="1.6"
+          d="M19 11a7 7 0 0 1-14 0m7 7v3"
+        />
+      </svg>
+    </button>
+  </div>
+
+  {audioBlob && (
+  <div className="mt-2 flex items-center gap-3">
+    <audio
+      controls
+      src={sessionStorage.getItem("riskAssessmentAudioBase64") || ""}
+    />
+    <span className="text-xs text-gray-500">
+      Voice note saved for this assessment.
+    </span>
+  </div>
+)}
+</div>
+
 
       <form onSubmit={handleSubmit} className="space-y-8">
         {/* Step 1: Basic Information */}
