@@ -1,9 +1,15 @@
-import joblib 
+import joblib
+from pathlib import Path
 import numpy as np
 
-model_path = "backend/models/model_V1.pkl"
+BASE_DIR = Path(__file__).resolve().parent
 
-model = joblib.load(model_path)
+MODEL_PATH = BASE_DIR.parent / "models" / "model_V1.pkl"
+
+if not MODEL_PATH.exists():
+    raise FileNotFoundError(f"Model file not found at {MODEL_PATH}")
+
+model = joblib.load(MODEL_PATH)
 
 def predict(features : list[float]):
     x = np.array(features).reshape(1,-1)
