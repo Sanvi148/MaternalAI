@@ -105,7 +105,7 @@ export default function RiskAssessment() {
       console.log("Transcript:", transcript);
 
       try {
-        const res = await fetch("https://maternalai-backend.onrender.com/parse-text", {
+        const res = await fetch("https://maternalai-backend.onrender.com/predict", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: transcript }),
